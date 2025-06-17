@@ -18,7 +18,7 @@ lapply(c('reshape2','tidyverse','dplyr','DescTools','readxl','stringr',
 ## Final Inclusion Mice
 
 ```{r}
-klf14_tg_echomri = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/all_raw_data_clean.xlsx')
+klf14_tg_echomri = read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/all_raw_data_clean.xlsx')
   klf14_tg_echomri = data.frame(
     mouse_id = klf14_tg_echomri$label_fixed,
     week = as.numeric(klf14_tg_echomri$Week),
@@ -30,10 +30,10 @@ klf14_tg_echomri = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/clea
   klf14_tg_echomri$fat_ratio = klf14_tg_echomri$fat_mass/klf14_tg_echomri$total_mass
   klf14_tg_echomri$lean_ratio = klf14_tg_echomri$lean_mass/klf14_tg_echomri$total_mass
   klf14_tg_echomri$fat_to_lean_ratio = klf14_tg_echomri$fat_mass/klf14_tg_echomri$lean_mass
-  genotypes = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/raw_data/regenotype_klf14.xlsx')
+  genotypes = read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/raw_data/regenotype_klf14.xlsx')
   klf14_tg_echomri <- merge(genotypes,klf14_tg_echomri)
   klf14_tg_echomri$group = paste(klf14_tg_echomri$sex,klf14_tg_echomri$genotype)
-  organ_weights = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/raw_data/organ_weight_measurements.xlsx')
+  organ_weights = read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/raw_data/organ_weight_measurements.xlsx')
   klf14_tg_echomri = merge(klf14_tg_echomri,organ_weights)
   mouse_ids = unique(klf14_tg_echomri$mouse_id)
   keep_ids = c()
@@ -338,7 +338,7 @@ ggplot(aes(x= week, y = mean_fat_ratio, shape = group, color = group)) +
 }
 
   #insulin tolerance test first round
-  ITT_round1 = suppressWarnings(read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/raw_data/ITT 12.20.2022.xlsx'))
+  ITT_round1 = suppressWarnings(read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/raw_data/ITT 12.20.2022.xlsx'))
   ITT_round1 = clean_tolerance_data(ITT_round1, genotypes)
   ITT_round1 = subset(ITT_round1, mouse_id %in% mouse_ids)
   colnames(ITT_round1) = tolower(colnames(ITT_round1))
@@ -411,7 +411,7 @@ ggplot(aes(x= week, y = mean_fat_ratio, shape = group, color = group)) +
   ITT_AUC_round1.post_hoc = aov(formula = AUC ~ sex*genotype, data = ITT_AUC_round1) %>% tukey_hsd()
   
   # insulin tolerance test second round
-  ITT_round2 = suppressWarnings(read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/raw_data/ITT 04.27.2023.xlsx'))
+  ITT_round2 = suppressWarnings(read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/raw_data/ITT 04.27.2023.xlsx'))
   ITT_round2 = subset(ITT_round2, mouse_id != '236RP') # excluded because mouse because hypoglycemic with correct insulin dose
   ITT_round2 = subset(ITT_round2, mouse_id %in% mouse_ids)
   ITT_round2 = clean_tolerance_data(ITT_round2,genotypes)
@@ -484,7 +484,7 @@ ggplot(aes(x= week, y = mean_fat_ratio, shape = group, color = group)) +
   ITT_AUC_round2.post_hoc = aov(formula = AUC ~ sex*genotype, data = ITT_AUC_round2) %>% tukey_hsd()
   
   # glucose tolerance test data
-  GTT = suppressWarnings(read.delim('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/GTT_12_8_2022_clean.tsv'))
+  GTT = suppressWarnings(read.delim('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/GTT_12_8_2022_clean.tsv'))
   GTT = clean_tolerance_data(GTT,genotypes)
   GTT = subset(GTT, mouse_id %in% mouse_ids)
 
@@ -559,8 +559,8 @@ ggplot(aes(x= week, y = mean_fat_ratio, shape = group, color = group)) +
 library(tidyverse)
 library(ggsignif)
 
-tc_hdl_data = read_excel('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/tc_hdl_data_fixed.xlsx')
-tg_data = read_excel('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/triglycderide_data_fixed_clean.xlsx')
+tc_hdl_data = read_excel('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/tc_hdl_data_fixed.xlsx')
+tg_data = read_excel('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/triglycderide_data_fixed_clean.xlsx')
 
 all_lipid_data = merge(tc_hdl_data, genotypes)
 all_lipid_data = merge(all_lipid_data, tg_data)
@@ -632,12 +632,12 @@ all_lipid_data %>%
 
 ```{r}
 
-logfc = read_excel('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/logfc_for_plotting_qpcr.xlsx')
+logfc = read_excel('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/logfc_for_plotting_qpcr.xlsx')
 logfc$label = fct_relevel(logfc$label,"F WT","F TG","M WT", "M TG")
 male_logfc = subset(logfc, label == 'M TG' | label == 'M WT' )
 female_logfc = subset(logfc, label == 'F TG' | label == 'F WT' )
 
-klf14_taqman = read_excel('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/klf14_average_cq.xlsx',sheet = 4)
+klf14_taqman = read_excel('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/klf14_average_cq.xlsx',sheet = 4)
 
 lipolysis_genes = c('Atgl','Dgat1','Fabp4','Fatp4')
 browning_genes = c('Pgc1a','Prdm16','TFAM','Ucp1')
@@ -721,7 +721,7 @@ klf14_taqman %>%
 
 ```{r}
 # indirect calorimetry ----------------------------------------------------
-  metabolic_cage_data = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/metabolic_cage_data_reformatted.xlsx')
+  metabolic_cage_data = read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/metabolic_cage_data_reformatted.xlsx')
   metabolic_cage_data$mouse_id[ metabolic_cage_data$mouse_id == '247BC(KNOCHED)'] = '247LC'
   metabolic_cage_data$mouse_id[ metabolic_cage_data$mouse_id == '227LC'] = '237LC'
   metabolic_cage_data$mouse_id[ metabolic_cage_data$mouse_id == '236RC'] = '236LCRP'
@@ -1129,7 +1129,7 @@ klf14_taqman %>%
 
 ```{r}
 # organ weight analysis ---------------------------------------------------
-  organ_weights = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/organ_weight_measurements_clean.xlsx')
+  organ_weights = read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/organ_weight_measurements_clean.xlsx')
   organ_weights = merge(organ_weights, genotypes, all.y = F)
   organ_weights = melt(organ_weights)
   organ_weights = organ_weights %>%
@@ -1163,7 +1163,7 @@ klf14_taqman %>%
     theme_classic() +
     theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left')
 
-  organ_weights = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/raw_data/organ_weight_measurements.xlsx')
+  organ_weights = read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/raw_data/organ_weight_measurements.xlsx')
  organ_weights = merge(organ_weights, genotypes, all.y = F)
   organ_weights = organ_weights %>%
     as_tibble() %>%
