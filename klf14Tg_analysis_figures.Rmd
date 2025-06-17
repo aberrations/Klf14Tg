@@ -1,0 +1,1430 @@
+---
+title: "Klf14Tg Statistical Analysis and Plots"
+output: html_document
+date: "2025-06-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r}
+lapply(c('reshape2','tidyverse','dplyr','DescTools','readxl','stringr',
+         'magrittr','readxl','rstatix','caroline','pracma','ggpubr'),library, character.only = TRUE)
+```
+
+## Final Inclusion Mice
+
+```{r}
+klf14_tg_echomri = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/all_raw_data_clean.xlsx')
+  klf14_tg_echomri = data.frame(
+    mouse_id = klf14_tg_echomri$label_fixed,
+    week = as.numeric(klf14_tg_echomri$Week),
+    group = NA,
+    total_mass = klf14_tg_echomri$Weight,
+    fat_mass = klf14_tg_echomri$Fat,
+    lean_mass = klf14_tg_echomri$Lean
+  )
+  klf14_tg_echomri$fat_ratio = klf14_tg_echomri$fat_mass/klf14_tg_echomri$total_mass
+  klf14_tg_echomri$lean_ratio = klf14_tg_echomri$lean_mass/klf14_tg_echomri$total_mass
+  klf14_tg_echomri$fat_to_lean_ratio = klf14_tg_echomri$fat_mass/klf14_tg_echomri$lean_mass
+  genotypes = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/raw_data/regenotype_klf14.xlsx')
+  klf14_tg_echomri <- merge(genotypes,klf14_tg_echomri)
+  klf14_tg_echomri$group = paste(klf14_tg_echomri$sex,klf14_tg_echomri$genotype)
+  organ_weights = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/raw_data/organ_weight_measurements.xlsx')
+  klf14_tg_echomri = merge(klf14_tg_echomri,organ_weights)
+  mouse_ids = unique(klf14_tg_echomri$mouse_id)
+  keep_ids = c()
+  for (i in 1:length(mouse_ids)) {
+    id = nrow(subset(klf14_tg_echomri, mouse_id == mouse_ids[i])) == 10
+    keep_ids = c(keep_ids,id)
+  }
+  mouse_ids = mouse_ids[keep_ids]
+```
+
+## Make Legend
+
+```{r}
+colors_klf14 = c('red','red','blue','blue')
+lines_KLF14 = c(1,2,1,2)
+weeks = tidyr::full_seq(c(12, 48), 4)
+time_points = c(0,20,40,60,90,120)
+shapes_klf14 = c(16,1,17,2)
+```
+
+## Body Composition
+
+```{r}
+  klf14_tg_echomri = subset(klf14_tg_echomri, mouse_id %in% mouse_ids)
+  klf14_tg_echomri$fat_mass_tibia = klf14_tg_echomri$fat_mass/klf14_tg_echomri$`tibia (cm)`
+  klf14_tg_echomri$lean_mass_tibia = klf14_tg_echomri$lean_mass/klf14_tg_echomri$`tibia (cm)`
+  klf14_tg_echomri$total_mass_tibia = klf14_tg_echomri$total_mass/klf14_tg_echomri$`tibia (cm)`
+  klf14_tg_echomri$adiposity_tibia = klf14_tg_echomri$fat_to_lean_ratio/klf14_tg_echomri$`tibia (cm)`
+  # all are basically normally distributed
+  # {View(klf14_tg_echomri %>%
+  #         group_by(sex,genotype,week) %>%
+  #         shapiro_test(total_mass))
+  # 
+  #   View(klf14_tg_echomri %>%
+  #          group_by(sex,genotype,week) %>%
+  #          shapiro_test(fat_mass))
+  # 
+  #   View(klf14_tg_echomri %>%
+  #          group_by(sex,genotype,week) %>%
+  #          shapiro_test(lean_mass))
+  # 
+  #   View(klf14_tg_echomri %>%
+  #          group_by(sex,genotype,week) %>%
+  #          shapiro_test(fat_ratio))
+  # 
+  #   View(klf14_tg_echomri %>%
+  #          group_by(sex,genotype,week) %>%
+  #          shapiro_test(lean_ratio))
+  # 
+  #   View(klf14_tg_echomri %>%
+  #          group_by(sex,genotype,week) %>%
+  #          shapiro_test(fat_to_lean_ratio))
+  # 
+  #   View(klf14_tg_echomri %>%
+  #          group_by(sex,genotype,week) %>%
+  #          shapiro_test(fat_mass_tibia))
+  # 
+  #   View(klf14_tg_echomri %>%
+  #          group_by(sex,genotype,week) %>%
+  #          shapiro_test(lean_mass_tibia))
+  # 
+  # 
+  #   View(klf14_tg_echomri %>%
+  #          group_by(sex,genotype,week) %>%
+  #          shapiro_test(total_mass_tibia))
+  # 
+  #   View(
+  #     klf14_tg_echomri %>%
+  #       group_by(sex,genotype,week) %>%
+  #       shapiro_test(adiposity_tibia) %>%
+  #       subset(.,p < 0.05)
+  #   )}
+  
+  # plot data
+  klf14_tg_echomri$group = fct_relevel(klf14_tg_echomri$group,"F WT","F TG","M WT", "M TG")
+
+  # Fat to Lean Ratio
+  klf14_tg_echomri %>% 
+    group_by(sex, genotype, week) %>% 
+    summarise(mean_fat_to_lean_ratio = mean(fat_to_lean_ratio),se_fat_to_lean_ratio = sd(fat_to_lean_ratio)/sqrt(length(fat_to_lean_ratio))) %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+ggplot(aes(x= week, y = mean_fat_to_lean_ratio, shape = group, color = group)) +
+    xlab('Week') +
+    ylab('Fat to Lean Ratio') +
+    geom_errorbar(aes(ymin=mean_fat_to_lean_ratio-se_fat_to_lean_ratio, ymax=mean_fat_to_lean_ratio+se_fat_to_lean_ratio), width=.5, lwd = .5) +
+    geom_point(size = 3) +
+    geom_line(aes(x= week, y = mean_fat_to_lean_ratio, color = group, linetype = genotype)) +
+    theme_classic() +
+    scale_color_manual(values=colors_klf14) +
+    theme(text = element_text(size = 15)) +
+    scale_x_continuous(breaks = weeks) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(legend.position="left")
+
+  # Fat Ratio
+  klf14_tg_echomri %>% 
+    group_by(sex, genotype, week) %>% 
+    summarise(mean_fat_ratio = mean(fat_ratio),se_fat_ratio = sd(fat_ratio)/sqrt(length(fat_ratio))) %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+ggplot(aes(x= week, y = mean_fat_ratio, shape = group, color = group)) +
+    xlab('Week') +
+    ylab('Fat Ratio') +
+    geom_errorbar(aes(ymin=mean_fat_ratio-se_fat_ratio, ymax=mean_fat_ratio+se_fat_ratio), width=.5, lwd = .5) +
+    geom_point(size = 3) +
+    geom_line(aes(x= week, y = mean_fat_ratio, color = group, linetype = genotype)) +
+    theme_classic() +
+    scale_color_manual(values=colors_klf14) +
+    theme(text = element_text(size = 15)) +
+    scale_x_continuous(breaks = weeks) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(legend.position="left")
+
+  # Lean Ratio
+  klf14_tg_echomri %>% 
+    group_by(sex, genotype, week) %>% 
+    summarise(mean_lean_ratio = mean(lean_ratio),se_lean_ratio = sd(lean_ratio)/sqrt(length(lean_ratio))) %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+    ggplot(aes(x= week, y = mean_lean_ratio, shape = group, color = group)) +
+    xlab('Week') +
+    ylab('Lean Ratio') +
+    geom_errorbar(aes(ymin=mean_lean_ratio-se_lean_ratio, ymax=mean_lean_ratio+se_lean_ratio), width=.5, lwd = .5) +
+    geom_point(size = 3) +
+    geom_line(aes(x= week, y = mean_lean_ratio, color = group, linetype = genotype)) +
+    theme_classic() +
+    scale_color_manual(values=colors_klf14) +
+    theme(text = element_text(size = 15)) +
+    scale_x_continuous(breaks = weeks) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(legend.position="left")
+
+  # Fat Mass (g)
+  klf14_tg_echomri %>% 
+    group_by(sex, genotype, week) %>% 
+    summarise(mean_fat_mass = mean(fat_mass),se_fat_mass = sd(fat_mass)/sqrt(length(fat_mass))) %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+    ggplot(aes(x= week, y = mean_fat_mass, shape = group, color = group)) +
+    xlab('Week') +
+    ylab('Fat Mass (g)') +
+    geom_errorbar(aes(ymin=mean_fat_mass-se_fat_mass, ymax=mean_fat_mass+se_fat_mass), width=.5, lwd = .5) +
+    geom_point(size = 3) +
+    geom_line(aes(x= week, y = mean_fat_mass, color = group, linetype = genotype)) +
+    theme_classic() +
+    scale_color_manual(values=colors_klf14) +
+    theme(text = element_text(size = 15)) +
+    scale_x_continuous(breaks = weeks) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(legend.position="left")
+
+  # Lean Mass (g)
+  klf14_tg_echomri %>% 
+    group_by(sex, genotype, week) %>% 
+    summarise(mean_lean_mass = mean(lean_mass),se_lean_mass = sd(lean_mass)/sqrt(length(lean_mass))) %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+    ggplot(aes(x= week, y = mean_lean_mass, shape = group, color = group)) +
+    xlab('Week') +
+    ylab('Lean Mass (g)') +
+    geom_errorbar(aes(ymin=mean_lean_mass-se_lean_mass, ymax=mean_lean_mass+se_lean_mass), width=.5, lwd = .5) +
+    geom_point(size = 3) +
+    geom_line(aes(x= week, y = mean_lean_mass, color = group, linetype = genotype)) +
+    theme_classic() +
+    scale_color_manual(values=colors_klf14) +
+    theme(text = element_text(size = 15)) +
+    scale_x_continuous(breaks = weeks) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(legend.position="left")
+
+  # Total Mass (g)
+  klf14_tg_echomri %>% 
+    group_by(sex, genotype, week) %>% 
+    summarise(mean_total_mass = mean(total_mass),se_total_mass = sd(total_mass)/sqrt(length(total_mass))) %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+    ggplot(aes(x= week, y = mean_total_mass, shape = group, color = group)) +
+    xlab('Week') +
+    ylab('Total Mass (g)') +
+    geom_errorbar(aes(ymin=mean_total_mass-se_total_mass, ymax=mean_total_mass+se_total_mass), width=.5, lwd = .5) +
+    geom_point(size = 3) +
+    geom_line(aes(x= week, y = mean_total_mass, color = group, linetype = genotype)) +
+    theme_classic() +
+    scale_color_manual(values=colors_klf14) +
+    theme(text = element_text(size = 15)) +
+    scale_x_continuous(breaks = weeks) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(legend.position="left")
+
+# repeated measure ANOVA
+
+  klf14_tg_echomri = klf14_tg_echomri %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id,week)
+  
+  total_mass.aov <- anova_test(
+    data = klf14_tg_echomri, dv = total_mass, wid = mouse_id,
+    within = c(sex, genotype, week),
+    formula = total_mass ~ sex*genotype * week
+  )
+  get_anova_table(total_mass.aov)
+  total_mass.post_hoc = aov(formula = total_mass ~ sex*genotype * week, data = klf14_tg_echomri) %>% tukey_hsd()
+  
+  fat_mass.aov <- anova_test(
+    data = klf14_tg_echomri, dv = fat_mass, wid = mouse_id,
+    within = c(sex, genotype, week),
+    formula = fat_mass ~ sex*genotype * week
+  )
+  get_anova_table(fat_mass.aov)
+  fat_mass.post_hoc = aov(formula = fat_mass ~ sex*genotype * week, data = klf14_tg_echomri) %>% tukey_hsd()
+  
+  lean_mass.aov <- anova_test(
+    data = klf14_tg_echomri, dv = lean_mass, wid = mouse_id,
+    within = c(sex, genotype, week),
+    formula = lean_mass ~ sex*genotype * week
+  )
+  get_anova_table(lean_mass.aov)
+  lean_mass.post_hoc = aov(formula = lean_mass ~ sex*genotype * week, data = klf14_tg_echomri) %>% tukey_hsd()
+  
+  total_mass_tibia.aov <- anova_test(
+    data = klf14_tg_echomri, dv = total_mass_tibia, wid = mouse_id,
+    within = c(sex, genotype, week),
+    formula = total_mass_tibia ~ sex*genotype * week
+  )
+  get_anova_table(total_mass_tibia.aov)
+  
+  fat_mass_tibia.aov <- anova_test(
+    data = klf14_tg_echomri, dv = fat_mass_tibia, wid = mouse_id,
+    within = c(sex, genotype, week),
+    formula = fat_mass_tibia ~ sex*genotype * week
+  )
+  get_anova_table(fat_mass_tibia.aov)
+  
+  lean_mass_tibia.aov <- anova_test(
+    data = klf14_tg_echomri, dv = lean_mass_tibia, wid = mouse_id,
+    within = c(sex, genotype, week),
+    formula = lean_mass_tibia ~ sex*genotype * week
+  )
+  get_anova_table(lean_mass_tibia.aov)
+  lean_mass_tibia.post_hoc = aov(formula = lean_mass_tibia ~ sex*genotype * week, data = klf14_tg_echomri) %>% tukey_hsd()
+  
+  adiposity_tibia.aov <- anova_test(
+    data = klf14_tg_echomri, dv = adiposity_tibia, wid = mouse_id,
+    within = c(sex, genotype, week),
+    formula = adiposity_tibia ~ sex*genotype * week
+  )
+  get_anova_table(adiposity_tibia.aov)
+  
+  fat_to_lean_ratio.aov <- anova_test(
+    data = klf14_tg_echomri, dv = fat_to_lean_ratio, wid = mouse_id,
+    within = c(sex, genotype, week),
+    formula = fat_to_lean_ratio ~ sex*genotype * week
+  )
+  get_anova_table(fat_to_lean_ratio.aov)
+  fat_to_lean_ratio.post_hoc = aov(formula = fat_to_lean_ratio ~ sex*genotype * week, data = klf14_tg_echomri) %>% tukey_hsd()
+  
+  fat_ratio.aov <- anova_test(
+    data = klf14_tg_echomri, dv = fat_ratio, wid = mouse_id,
+    within = c(sex, genotype, week),
+    formula = fat_ratio ~ sex*genotype * week
+  )
+  get_anova_table(fat_ratio.aov)
+  fat_ratio.post_hoc = aov(formula = fat_ratio ~ sex*genotype * week, data = klf14_tg_echomri) %>% tukey_hsd()
+  
+  lean_ratio.aov <- anova_test(
+    data = klf14_tg_echomri, dv = lean_ratio, wid = mouse_id,
+    within = c(sex, genotype, week),
+    formula = lean_ratio ~ sex*genotype * week
+  )
+  get_anova_table(lean_ratio.aov)
+  lean_ratio.post_hoc = aov(formula = lean_ratio ~ sex*genotype * week, data = klf14_tg_echomri) %>% tukey_hsd()
+```
+
+## Insulin and Glucose Tolerance
+
+```{r}
+# insulin and glucose tolerance test data ---------------------------------
+  clean_tolerance_data = function(tolerance_data,genotype) {
+  tolerance_data = data.frame(
+    mouse_id = tolerance_data$mouse_id,
+    time = tolerance_data$time,
+    glucose = tolerance_data$glucose..mg.dl.
+  )
+  tolerance_data = na.omit(merge(tolerance_data,genotype))
+  colnames(tolerance_data)[1] = 'mouse_id'
+  tolerance_data$group = paste(tolerance_data$sex,tolerance_data$genotype)
+  to_keep = c()
+  inclusion_list = unique(tolerance_data$mouse_id)
+  mouse_ids = tolerance_data$mouse_id
+  for (mouse_id in inclusion_list) {
+    if(sum(mouse_ids == mouse_id) == 6) {
+      to_keep = append(to_keep, mouse_id)
+    }
+  }
+  tolerance_data = subset(tolerance_data, mouse_id %in% to_keep)
+  tolerance_data$normalized_glucose = tolerance_data$glucose/rep(subset(tolerance_data, time == 0)$glucose,each = 6)
+  tolerance_data = na.omit(tolerance_data)
+  return(tolerance_data) 
+}
+
+  #insulin tolerance test first round
+  ITT_round1 = suppressWarnings(read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/raw_data/ITT 12.20.2022.xlsx'))
+  ITT_round1 = clean_tolerance_data(ITT_round1, genotypes)
+  ITT_round1 = subset(ITT_round1, mouse_id %in% mouse_ids)
+  colnames(ITT_round1) = tolower(colnames(ITT_round1))
+  colnames(ITT_round1)[7] = 'genotype'
+  ITT_round1$normalized_glucose = 100*ITT_round1$normalized_glucose
+  ITT_round1 %>% 
+    group_by(sex, genotype, time) %>% 
+    summarise(mean_normalized_glucose = mean(normalized_glucose),se_normalized_glucose = sd(normalized_glucose)/sqrt(length(normalized_glucose))) %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+    ggplot(aes(x= time, y = mean_normalized_glucose, shape = group, color = group, linetype = group)) +
+    geom_point(size = 3) +
+    geom_errorbar(aes(ymin=mean_normalized_glucose-se_normalized_glucose, ymax=mean_normalized_glucose+se_normalized_glucose), width=.5, lwd = .5) +
+    geom_line() +
+    theme_classic() +
+    xlab('Time (minutes)') +
+    ylab('Glucose (% of initial value)') +
+    ggtitle('Insulin Tolerance Test') +
+    theme(text = element_text(size = 15)) +
+    scale_x_continuous(breaks = time_points) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    scale_linetype_manual(values = lines_KLF14) +
+    theme(legend.position="left")
+
+  #ITT Area under curve
+  ITT_round1 = ITT_round1[order(ITT_round1$time),]
+  ITT_round1 = ITT_round1[order(ITT_round1$mouse_id),]
+  ITT_AUC_round1 = ITT_round1 %>%
+    as.data.frame() %>%
+    group_by(mouse_id) %>%
+    summarise(AUC = trapz(time, normalized_glucose)) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex,genotype))
+  ITT_AUC_round1 %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+    ggplot(aes(x= group, y = AUC, shape = group, color = group)) +
+    ylab('Normalized ITT AUC') +
+    ggtitle('Insulin Tolerance Test') +
+    geom_jitter(position = position_jitter(width = .25), cex = 3) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values=colors_klf14) +
+    theme(text = element_text(size = 14)) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(legend.position="left")
+
+  #statistics for ITT
+  ITT_round1 = ITT_round1 %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id,time)
+  ITT_round1_normalized_glucose.aov <- anova_test(
+    data = ITT_round1, dv = normalized_glucose, wid = mouse_id,
+    within = c(sex, genotype, time),
+    formula = normalized_glucose ~ sex*genotype + time
+  )
+  get_anova_table(ITT_round1_normalized_glucose.aov)
+  ITT_round1_normalized_glucose.post_hoc = aov(formula = normalized_glucose ~ sex*genotype + time, data = ITT_round1) %>% tukey_hsd()
+  
+  #statistics for ITT AUC
+  ITT_AUC_round1 = ITT_AUC_round1 %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  ITT_AUC_round1.aov <- anova_test(
+    data = ITT_AUC_round1, dv = AUC, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = AUC ~ sex*genotype
+  )
+  get_anova_table(ITT_AUC_round1.aov)
+  ITT_AUC_round1.post_hoc = aov(formula = AUC ~ sex*genotype, data = ITT_AUC_round1) %>% tukey_hsd()
+  
+  # insulin tolerance test second round
+  ITT_round2 = suppressWarnings(read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/raw_data/ITT 04.27.2023.xlsx'))
+  ITT_round2 = subset(ITT_round2, mouse_id != '236RP') # excluded because mouse because hypoglycemic with correct insulin dose
+  ITT_round2 = subset(ITT_round2, mouse_id %in% mouse_ids)
+  ITT_round2 = clean_tolerance_data(ITT_round2,genotypes)
+  ITT_round2$normalized_glucose = 100*ITT_round2$normalized_glucose
+  
+  ITT_round2 %>% 
+    group_by(sex, genotype, time) %>% 
+    summarise(mean_normalized_glucose = mean(normalized_glucose),se_normalized_glucose = sd(normalized_glucose)/sqrt(length(normalized_glucose))) %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+    ggplot(aes(x= time, y = mean_normalized_glucose, shape = group, color = group, linetype = group)) +
+    geom_point(size = 3) +
+    geom_errorbar(aes(ymin=mean_normalized_glucose-se_normalized_glucose, ymax=mean_normalized_glucose+se_normalized_glucose), width=.5, lwd = .5) +
+    geom_line() +
+    theme_classic() +
+    xlab('Time (minutes)') +
+    ylab('Glucose (% of initial value)') +
+    ggtitle('Insulin Tolerance Test') +
+    theme(text = element_text(size = 15)) +
+    scale_x_continuous(breaks = time_points) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    scale_linetype_manual(values = lines_KLF14) +
+    theme(legend.position="left")
+
+  #ITT Area under curve
+  ITT_round2 = ITT_round2[order(ITT_round2$time),]
+  ITT_round2 = ITT_round2[order(ITT_round2$mouse_id),]
+  ITT_AUC_round2 = ITT_round2 %>%
+    as.data.frame() %>%
+    group_by(mouse_id) %>%
+    summarise(AUC = trapz(time, normalized_glucose)) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex,genotype))
+  ITT_AUC_round2 %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+    ggplot(aes(x= group, y = AUC, shape = group, color = group)) +
+    ylab('Normalized ITT AUC') +
+    ggtitle('Insulin Tolerance Test') +
+    geom_jitter(position = position_jitter(width = .25), cex = 3) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values=colors_klf14) +
+    theme(text = element_text(size = 14)) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(legend.position="left",  axis.title.x=element_blank())
+
+  #statistics for ITT
+  ITT_round2 = ITT_round2 %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id,time)
+  ITT_round2_normalized_glucose.aov <- anova_test(
+    data = ITT_round2, dv = normalized_glucose, wid = mouse_id,
+    within = c(sex, genotype, time),
+    formula = normalized_glucose ~ sex*genotype + time
+  )
+  get_anova_table(ITT_round2_normalized_glucose.aov)
+  ITT_round2_normalized_glucose.post_hoc = aov(formula = normalized_glucose ~ sex*genotype + time, data = ITT_round2) %>% tukey_hsd()
+  
+  #statistics for ITT AUC
+  ITT_AUC_round2 = ITT_AUC_round2 %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  ITT_AUC_round2.aov <- anova_test(
+    data = ITT_AUC_round2, dv = AUC, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = AUC ~ sex*genotype
+  )
+  get_anova_table(ITT_AUC_round2.aov)
+  ITT_AUC_round2.post_hoc = aov(formula = AUC ~ sex*genotype, data = ITT_AUC_round2) %>% tukey_hsd()
+  
+  # glucose tolerance test data
+  GTT = suppressWarnings(read.delim('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/GTT_12_8_2022_clean.tsv'))
+  GTT = clean_tolerance_data(GTT,genotypes)
+  GTT = subset(GTT, mouse_id %in% mouse_ids)
+
+  GTT %>% 
+    group_by(sex, genotype, time) %>% 
+    summarise(mean_glucose = mean(glucose),se_glucose = sd(glucose)/sqrt(length(glucose))) %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+    ggplot(aes(x= time, y = mean_glucose, shape = group, color = group, linetype = group)) +
+    geom_point(size = 3) +
+    geom_errorbar(aes(ymin=mean_glucose-se_glucose, ymax=mean_glucose+se_glucose), width=.5, lwd = .5) +
+    geom_line() +
+    theme_classic() +
+    scale_color_manual(values=colors_klf14) +
+    xlab('Time (minutes)') +
+    ylab('Glucose (mg/dL)') +
+    ggtitle('Glucose Tolerance Test') +
+    theme(text = element_text(size = 15)) +
+    scale_x_continuous(breaks = time_points) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    scale_linetype_manual(values = lines_KLF14) +
+    theme(legend.position="left")
+
+  GTT = GTT[order(GTT$time),]
+  GTT = GTT[order(GTT$mouse_id),]
+  GTT_AUC = GTT %>%
+    group_by(mouse_id) %>%
+    summarise(AUC = trapz(time, glucose)) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex,genotype))
+  GTT_AUC %>% 
+    mutate(group = paste(sex, genotype)) %>% 
+    ggplot(aes(x= group, y = AUC, shape = group, color = group)) +
+    ylab('GTT AUC') +
+    ggtitle('Glucose Tolerance Test') +
+    geom_jitter(position = position_jitter(width = .25), cex = 3) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values=colors_klf14) +
+    theme(text = element_text(size = 14)) +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(legend.position="left")
+
+  GTT = GTT %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id,time)
+  GTT_glucose.aov <- anova_test(
+    data = GTT, dv = glucose, wid = mouse_id,
+    within = c(sex, genotype, time),
+    formula = glucose ~ sex*genotype + time
+  )
+  get_anova_table(GTT_glucose.aov)
+  GTT_glucose.post_hoc = aov(formula = glucose ~ sex*genotype + time, data = GTT) %>% tukey_hsd()
+  
+  GTT_AUC = GTT_AUC %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  GTT_AUC.aov <- anova_test(
+    data = GTT_AUC, dv = AUC, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = AUC ~ sex*genotype
+  )
+  get_anova_table(GTT_AUC.aov)
+  GTT_AUC.post_hoc = aov(formula = AUC ~ sex*genotype, data = GTT_AUC) %>% tukey_hsd()
+```
+
+## Serum Lipid Profiles
+
+```{r}
+
+library(tidyverse)
+library(ggsignif)
+
+tc_hdl_data = read_excel('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/tc_hdl_data_fixed.xlsx')
+tg_data = read_excel('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/triglycderide_data_fixed_clean.xlsx')
+
+all_lipid_data = merge(tc_hdl_data, genotypes)
+all_lipid_data = merge(all_lipid_data, tg_data)
+all_lipid_data$group = paste(all_lipid_data$sex,all_lipid_data$genotype)
+all_lipid_data = data.frame(
+  group = all_lipid_data$group,
+  HDL = all_lipid_data$HDL,
+  TC = all_lipid_data$`TC`,
+  TG = all_lipid_data$Triglycerides
+)
+all_lipid_data$LDL = abs(all_lipid_data$TC - all_lipid_data$HDL - all_lipid_data$TG/5)
+all_lipid_data = melt(all_lipid_data)
+group_list = c('F WT','F TG','M WT','M TG')
+
+all_lipid_data %>% 
+  filter(variable == 'HDL') %>%
+  mutate(group = factor(group, group_list)) %>%
+  ggplot(aes(x= group, y = value, shape = group, color = group)) +
+  ylab('HDL (mg/dL)') +
+  geom_jitter(position = position_jitter(width = .15),cex = 3) + 
+  stat_summary(fun = mean, geom = "crossbar") +
+  theme_classic() +
+  scale_color_manual(values = colors_klf14) +
+  scale_shape_manual(values = shapes_klf14) +
+  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test') +
+  theme(text = element_text(size = 14), legend.position="left", axis.title.x =element_blank())
+
+all_lipid_data %>% 
+  filter(variable == 'TC') %>%
+  mutate(group = factor(group, group_list)) %>%
+  ggplot(aes(x= group, y = value, shape = group, color = group)) +
+  ylab('TC (mg/dL)') +
+  geom_jitter(position = position_jitter(width = .15),cex = 3) + 
+  stat_summary(fun = mean, geom = "crossbar") +
+  theme_classic() +
+  scale_color_manual(values = colors_klf14) +
+  scale_shape_manual(values = shapes_klf14) +
+  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test') +
+  theme(text = element_text(size = 14), legend.position="left", axis.title.x =element_blank())
+
+all_lipid_data %>% 
+  filter(variable == 'TG') %>%
+  mutate(group = factor(group, group_list)) %>%
+  ggplot(aes(x= group, y = value, shape = group, color = group)) +
+  ylab('TG (mg/dL)') +
+  geom_jitter(position = position_jitter(width = .15),cex = 3) + 
+  stat_summary(fun = mean, geom = "crossbar") +
+  theme_classic() +
+  scale_color_manual(values = colors_klf14) +
+  scale_shape_manual(values = shapes_klf14) +
+  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test') +
+  theme(text = element_text(size = 14), legend.position="left", axis.title.x =element_blank())
+
+all_lipid_data %>% 
+  filter(variable == 'LDL') %>%
+  mutate(group = factor(group, group_list)) %>%
+  ggplot(aes(x= group, y = value, shape = group, color = group)) +
+  ylab('LDL (mg/dL)') +
+  geom_jitter(position = position_jitter(width = .15),cex = 3) + 
+  stat_summary(fun = mean, geom = "crossbar") +
+  theme_classic() +
+  scale_color_manual(values = colors_klf14) +
+  scale_shape_manual(values = shapes_klf14) +
+  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test') +
+  theme(text = element_text(size = 14), legend.position="left", axis.title.x =element_blank())
+```
+
+## Subcutaneous Adipose Tissue qPCR
+
+```{r}
+
+logfc = read_excel('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/logfc_for_plotting_qpcr.xlsx')
+logfc$label = fct_relevel(logfc$label,"F WT","F TG","M WT", "M TG")
+male_logfc = subset(logfc, label == 'M TG' | label == 'M WT' )
+female_logfc = subset(logfc, label == 'F TG' | label == 'F WT' )
+
+klf14_taqman = read_excel('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/klf14_average_cq.xlsx',sheet = 4)
+
+lipolysis_genes = c('Atgl','Dgat1','Fabp4','Fatp4')
+browning_genes = c('Pgc1a','Prdm16','TFAM','Ucp1')
+
+# female lipolysis
+p.position = max(subset(female_logfc, Target %in% lipolysis_genes)$logfc)
+female_logfc %>%
+  filter(Target %in% lipolysis_genes) %>%
+  ggplot(aes(x = Target, y = logfc, colour = label)) +
+  ylab('Relative Expression') +
+  geom_boxplot(aes(colour = label),outlier.shape = NA) +
+  theme_classic() +
+  scale_color_manual(values=c('red','red')) +
+  geom_jitter(aes(shape = label), position = position_jitterdodge(jitter.width = .1), cex = 2) + 
+  scale_shape_manual(values=c(1,16)) +
+  theme_classic() +
+  stat_compare_means(aes(group = label), label = "p.format", label.y = p.position * 1.1, method = 't.test') +
+  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left',plot.title = element_text(hjust = 0.5))
+
+# female browning
+p.position = max(subset(female_logfc, Target %in% browning_genes)$logfc)
+female_logfc %>%
+  filter(Target %in% browning_genes) %>%
+  ggplot(aes(x = Target, y = logfc, colour = label)) +
+  ylab('Relative Expression') +
+  geom_boxplot(aes(colour = label),outlier.shape = NA) +
+  theme_classic() +
+  scale_color_manual(values=c('red','red')) +
+  geom_jitter(aes(shape = label), position = position_jitterdodge(jitter.width = .1), cex = 2) + 
+  scale_shape_manual(values=c(1,16)) +
+  theme_classic() +
+  stat_compare_means(aes(group = label), label = "p.format", label.y = p.position * 1.1, method = 't.test') +
+  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left',plot.title = element_text(hjust = 0.5))
+
+# male lipolysis
+p.position = max(subset(male_logfc, Target %in% lipolysis_genes)$logfc)
+male_logfc %>%
+  filter(Target %in% lipolysis_genes) %>%
+  ggplot(aes(x = Target, y = logfc, colour = label)) +
+  ylab('Relative Expression') +
+  geom_boxplot(aes(colour = label),outlier.shape = NA) +
+  theme_classic() +
+  scale_color_manual(values=c('blue','blue')) +
+  geom_jitter(aes(shape = label), position = position_jitterdodge(jitter.width = .1), cex = 2) + 
+  scale_shape_manual(values=c(2,17)) +
+  theme_classic() +
+  stat_compare_means(aes(group = label), label = "p.format", label.y = p.position * 1.1, method = 't.test') +
+  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left',plot.title = element_text(hjust = 0.5))
+
+# male browning
+p.position = max(subset(male_logfc, Target %in% browning_genes)$logfc)
+male_logfc %>%
+  filter(Target %in% browning_genes) %>%
+  ggplot(aes(x = Target, y = logfc, colour = label)) +
+  ylab('Relative Expression') +
+  geom_boxplot(aes(colour = label),outlier.shape = NA) +
+  theme_classic() +
+  scale_color_manual(values=c('blue','blue')) +
+  geom_jitter(aes(shape = label), position = position_jitterdodge(jitter.width = .1), cex = 2) + 
+  scale_shape_manual(values=c(2,17)) +
+  theme_classic() +
+  stat_compare_means(aes(group = label), label = "p.format", label.y = p.position * 1.1, method = 't.test') +
+  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left',plot.title = element_text(hjust = 0.5))
+
+p.position = max(klf14_taqman$Logfc)
+genotype_list = c('WT','TG')
+klf14_taqman %>%
+  mutate(Genotype = factor(Genotype, genotype_list)) %>%
+  ggplot(aes(x = Genotype, y = Logfc)) +
+  ylab('Klf14 Relative Expression') +
+  geom_boxplot(aes(),outlier.shape = NA) +
+  theme_classic() +
+  geom_jitter(aes(shape = Genotype, fill = Genotype),position = position_jitterdodge(jitter.width = .4), cex = 2) + 
+  scale_shape_manual(values=c(1,16)) +
+  theme_classic() +
+  stat_compare_means(aes(group = Genotype), label = "p.format", label.y = p.position * 1.1, label.x.npc = 'middle',method = 't.test') +
+  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left',plot.title = element_text(hjust = 0.5))
+```
+
+## Energy Metabolism
+
+```{r}
+# indirect calorimetry ----------------------------------------------------
+  metabolic_cage_data = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/metabolic_cage_data_reformatted.xlsx')
+  metabolic_cage_data$mouse_id[ metabolic_cage_data$mouse_id == '247BC(KNOCHED)'] = '247LC'
+  metabolic_cage_data$mouse_id[ metabolic_cage_data$mouse_id == '227LC'] = '237LC'
+  metabolic_cage_data$mouse_id[ metabolic_cage_data$mouse_id == '236RC'] = '236LCRP'
+  first_timepoint = subset(metabolic_cage_data, Interval == 1 & mouse_id %in% mouse_ids & !duplicated(mouse_id))
+  metabolic_cage_data_no_adjustment_period = metabolic_cage_data[1,]
+  metabolic_cage_data_no_adjustment_period[1,1] = NA
+  for (first_timepoint_row in 1:nrow(first_timepoint)) {
+    first_timpoint_row_data = first_timepoint[first_timepoint_row,]
+    inital_timepoint = first_timpoint_row_data$`Date/Time`
+    twentyfour_timepoint = inital_timepoint + lubridate::hours(24)
+    seventytwo_timepoint = inital_timepoint + lubridate::hours(72)
+    metabolic_cage_data_sample_subset = subset(metabolic_cage_data, mouse_id == first_timpoint_row_data$mouse_id & `Date/Time` > twentyfour_timepoint & `Date/Time` < seventytwo_timepoint)
+    metabolic_cage_data_no_adjustment_period = rbind(metabolic_cage_data_no_adjustment_period, metabolic_cage_data_sample_subset)
+  }
+  metabolic_cage_data_no_adjustment_period = na.omit(metabolic_cage_data_no_adjustment_period)
+  metabolic_cage_data_no_adjustment_period = merge(metabolic_cage_data_no_adjustment_period, genotypes)
+  # CHU = 20 * vO2 * (RER*0.7/0.3)
+  metabolic_cage_data_no_adjustment_period$carbohydrate_utilization = 20 * metabolic_cage_data_no_adjustment_period$`Volume O2` * (metabolic_cage_data_no_adjustment_period$RER-0.7)/0.3
+    # CHU = 20 * vO2 * (RER*0.7/0.3)
+  metabolic_cage_data_no_adjustment_period$fat_utilization = 20 * metabolic_cage_data_no_adjustment_period$`Volume O2` * (1- (metabolic_cage_data_no_adjustment_period$RER-0.7)/0.3)
+  metabolic_cage_data_no_adjustment_period$group = paste(metabolic_cage_data_no_adjustment_period$sex, metabolic_cage_data_no_adjustment_period$genotype)
+  metabolic_cage_data_no_adjustment_period$movement_total = metabolic_cage_data_no_adjustment_period$`X Ambulatory` + metabolic_cage_data_no_adjustment_period$`Y Ambulatory`
+  
+  metabolic_cage_data_no_adjustment_period$group = fct_relevel(metabolic_cage_data_no_adjustment_period$group,"F WT","F TG","M WT", "M TG")
+  
+  
+  # RER
+  metabolic_cage_data_no_adjustment_period %>%
+    aggregate(RER ~ mouse_id , mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = RER, shape = group, color = group)) +
+    ylab('Light Cycle RER') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+
+  # Light Cycle RER
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(RER ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = RER, shape = group, color = group)) +
+    ylab('Light Cycle RER') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  RER_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(RER ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  RER_data.aov = anova_test(
+    data = RER_data, dv = RER, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = RER ~ sex*genotype
+  )
+  get_anova_table(RER_data.aov)
+  RER_data.aov = aov(formula = RER ~ sex*genotype, data = RER_data) %>% tukey_hsd()
+  
+  
+  # Dark Cycle RER
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(RER ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = RER, shape = group, color = group)) +
+    ylab('Dark Cycle RER') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  RER_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(RER ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  RER_data.aov = anova_test(
+    data = RER_data, dv = RER, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = RER ~ sex*genotype
+  )
+  get_anova_table(RER_data.aov)
+  RER_data.aov = aov(formula = RER ~ sex*genotype, data = RER_data) %>% tukey_hsd()
+  
+  # Light Cycle VO2
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(`Volume O2` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = `Volume O2`, shape = group, color = group)) +
+    ylab('Light Cycle VO2') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  VO2_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(`Volume O2` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  VO2_data.aov = anova_test(
+    data = VO2_data, dv = `Volume O2`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `Volume O2` ~ sex*genotype
+  )
+  get_anova_table(VO2_data.aov)
+  VO2_data.aov = aov(formula = `Volume O2` ~ sex*genotype, data = VO2_data) %>% tukey_hsd()
+  
+  # Dark Cycle VO2
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(`Volume O2` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = `Volume O2`, shape = group, color = group)) +
+    ylab('Dark Cycle VO2') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  VO2_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(`Volume O2` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  VO2_data.aov = anova_test(
+    data = VO2_data, dv = `Volume O2`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `Volume O2` ~ sex*genotype
+  )
+  get_anova_table(VO2_data.aov)
+  VO2_data.aov = aov(formula = `Volume O2` ~ sex*genotype, data = VO2_data) %>% tukey_hsd()
+
+  # Light Cycle VCO2
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(`Volume CO2` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = `Volume CO2`, shape = group, color = group)) +
+    ylab('Light Cycle VCO2') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  VCO2_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(`Volume CO2` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  VCO2_data.aov = anova_test(
+    data = VCO2_data, dv = `Volume CO2`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `Volume CO2` ~ sex*genotype
+  )
+  get_anova_table(VCO2_data.aov)
+  VCO2_data.aov = aov(formula = `Volume CO2` ~ sex*genotype, data = VCO2_data) %>% tukey_hsd()
+
+  # Dark Cycle VCO2
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(`Volume CO2` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = `Volume CO2`, shape = group, color = group)) +
+    ylab('Dark Cycle VCO2') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  VCO2_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(`Volume CO2` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  VCO2_data.aov = anova_test(
+    data = VCO2_data, dv = `Volume CO2`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `Volume CO2` ~ sex*genotype
+  )
+  get_anova_table(VCO2_data.aov)
+  VCO2_data.aov = aov(formula = `Volume CO2` ~ sex*genotype, data = VCO2_data) %>% tukey_hsd()
+
+  # Light Cycle Fat Utilization
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(fat_utilization ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = fat_utilization, shape = group, color = group)) +
+    ylab('Light Cycle Fat Utilization') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  fat_utilization_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(fat_utilization ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  fat_utilization_data.aov = anova_test(
+    data = fat_utilization_data, dv = fat_utilization, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = fat_utilization ~ sex*genotype
+  )
+  get_anova_table(fat_utilization_data.aov)
+  fat_utilization_data.aov = aov(formula = fat_utilization ~ sex*genotype, data = fat_utilization_data) %>% tukey_hsd()
+
+  # Dark Cycle Fat Utilization
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(fat_utilization ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = fat_utilization, shape = group, color = group)) +
+    ylab('Dark Cycle Fat Utilization') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  fat_utilization_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(fat_utilization ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  fat_utilization_data.aov = anova_test(
+    data = fat_utilization_data, dv = fat_utilization, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = fat_utilization ~ sex*genotype
+  )
+  get_anova_table(fat_utilization_data.aov)
+  fat_utilization_data.aov = aov(formula = fat_utilization ~ sex*genotype, data = fat_utilization_data) %>% tukey_hsd()
+
+  # Light Cycle Carbohydrate Utilization
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(carbohydrate_utilization ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = carbohydrate_utilization, shape = group, color = group)) +
+    ylab('Light Cycle Carbohydrate Utilization') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  carbohydrate_utilization_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(carbohydrate_utilization ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  carbohydrate_utilization_data.aov = anova_test(
+    data = carbohydrate_utilization_data, dv = carbohydrate_utilization, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = carbohydrate_utilization ~ sex*genotype
+  )
+  get_anova_table(carbohydrate_utilization_data.aov)
+  carbohydrate_utilization_data.aov = aov(formula = carbohydrate_utilization ~ sex*genotype, data = carbohydrate_utilization_data) %>% tukey_hsd()
+
+  # Dark Cycle Carbohydrate Utilization
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(carbohydrate_utilization ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = carbohydrate_utilization, shape = group, color = group)) +
+    ylab('Dark Cycle Carbohydrate Utilization') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  carbohydrate_utilization_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(carbohydrate_utilization ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  carbohydrate_utilization_data.aov = anova_test(
+    data = carbohydrate_utilization_data, dv = carbohydrate_utilization, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = carbohydrate_utilization ~ sex*genotype
+  )
+  get_anova_table(carbohydrate_utilization_data.aov)
+  carbohydrate_utilization_data.aov = aov(formula = carbohydrate_utilization ~ sex*genotype, data = carbohydrate_utilization_data) %>% tukey_hsd()
+
+  # Light Cycle Beam Breaks
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(movement_total ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = movement_total, shape = group, color = group)) +
+    ylab('Light Cycle Beam Breaks') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  movement_total_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Light') %>%
+    aggregate(movement_total ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  movement_total_data.aov = anova_test(
+    data = movement_total_data, dv = movement_total, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = movement_total ~ sex*genotype
+  )
+  get_anova_table(movement_total_data.aov)
+  movement_total_data.aov = aov(formula = movement_total ~ sex*genotype, data = movement_total_data) %>% tukey_hsd()
+
+  # Dark Cycle Beam Breaks
+  metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(movement_total ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = movement_total, shape = group, color = group)) +
+    ylab('Dark Cycle Beam Breaks') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14), legend.position="left")
+  movement_total_data = metabolic_cage_data_no_adjustment_period %>%
+    filter(`Light/Dark` == 'Dark') %>%
+    aggregate(movement_total ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  movement_total_data.aov = anova_test(
+    data = movement_total_data, dv = movement_total, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = movement_total ~ sex*genotype
+  )
+  get_anova_table(movement_total_data.aov)
+  movement_total_data.aov = aov(formula = movement_total ~ sex*genotype, data = movement_total_data) %>% tukey_hsd()
+```
+
+## Organ Weights
+
+```{r}
+# organ weight analysis ---------------------------------------------------
+  organ_weights = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/cleaned_data/organ_weight_measurements_clean.xlsx')
+  organ_weights = merge(organ_weights, genotypes, all.y = F)
+  organ_weights = melt(organ_weights)
+  organ_weights = organ_weights %>%
+    filter(variable != 'cage') %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+  organ_weights$value = as.numeric(organ_weights$value)
+  organ_weights = na.omit(organ_weights)
+  
+  #males
+  organ_weights %>%
+    filter(sex == 'M') %>%
+    ggplot(aes(x = variable, y = value, colour = genotype)) +
+    ylab('Organ Weight Normalized to Tibia Length (g/cm)') +
+    geom_jitter(aes(shape = genotype), position = position_jitterdodge(),cex = 2) + 
+    stat_summary(fun = mean, geom = "crossbar", position = position_dodge2()) +
+    scale_color_manual(values=c('blue','blue')) +
+    scale_shape_manual(values=c(2,17)) +
+    theme_classic() +
+    theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left')
+
+  #females
+  organ_weights %>%
+    filter(sex == 'F') %>%
+    ggplot(aes(x = variable, y = value, colour = genotype)) +
+    ylab('Organ Weight Normalized to Tibia Length (g/cm)') +
+    geom_jitter(aes(shape = genotype), position = position_jitterdodge(),cex = 2) + 
+    stat_summary(fun = mean, geom = "crossbar", position = position_dodge2())+
+    scale_color_manual(values=c('red','red')) +
+    scale_shape_manual(values=c(16,1)) +
+    theme_classic() +
+    theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left')
+
+  organ_weights = read_xlsx('/Users/ya8eb/Documents/Research/KLF14/Klf14Tg/raw_data/organ_weight_measurements.xlsx')
+ organ_weights = merge(organ_weights, genotypes, all.y = F)
+  organ_weights = organ_weights %>%
+    as_tibble() %>%
+    convert_as_factor(sex,genotype,mouse_id)
+
+  #tibia
+  tibia.aov <- anova_test(
+    data = organ_weights, dv = `tibia (cm)`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `tibia (cm)` ~ sex*genotype
+  )
+  get_anova_table(tibia.aov)
+  tibia.post_hoc = aov(formula = `tibia (cm)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  liver.aov <- anova_test(
+    data = organ_weights, dv = `liver (g)`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `liver (g)` ~ sex*genotype
+  )
+  get_anova_table(liver.aov)
+  liver.post_hoc = aov(formula = `liver (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #subq
+  organ_weights %>%
+    aggregate(`subq (g)` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    mutate(sex = factor(sex, levels = c("F", "M"))) %>%
+    mutate(genotype = factor(genotype, levels = c("WT", "TG"))) %>%
+    ggplot(aes(x = group, y = `subq (g)`, shape = group, color = group)) +
+    ylab('Subcutaneous Fat (g)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  subq.aov <- anova_test(
+    data = organ_weights, dv = `subq (g)`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `subq (g)` ~ sex*genotype
+  )
+  get_anova_table(subq.aov)
+  subq.post_hoc = aov(formula = `subq (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #kidney
+  organ_weights %>%
+    aggregate(`kidney (g)` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = `kidney (g)`, shape = group, color = group)) +
+    ylab('Kidney (g)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  kidney.aov <- anova_test(
+    data = organ_weights, dv = `kidney (g)`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `kidney (g)` ~ sex*genotype
+  )
+  get_anova_table(kidney.aov)
+  kidney.post_hoc = aov(formula = `kidney (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #visceral
+  organ_weights %>%
+    aggregate(`visceral (g)` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+  ggplot(aes(x = group, y = `visceral (g)`, shape = group, color = group)) +
+    ylab('Visceral Fat (g)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  visceral.aov <- anova_test(
+    data = organ_weights, dv = `visceral (g)`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `visceral (g)` ~ sex*genotype
+  )
+  get_anova_table(visceral.aov)
+  visceral.post_hoc = aov(formula = `visceral (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #heart
+  organ_weights %>%
+    aggregate(`heart (g)` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = `heart (g)`, shape = group, color = group)) +
+    ylab('Heart (g)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  heart.aov <- anova_test(
+    data = organ_weights, dv = `heart (g)`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `heart (g)` ~ sex*genotype
+  )
+  get_anova_table(heart.aov)
+  heart.post_hoc = aov(formula = `heart (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #skm
+  organ_weights %>%
+    aggregate(`skm (g)` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+ggplot(aes(x = group, y = `skm (g)`, shape = group, color = group)) +
+    ylab('Skeletal Muscle (g)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  skm.aov <- anova_test(
+    data = organ_weights, dv = `skm (g)`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `skm (g)` ~ sex*genotype
+  )
+  get_anova_table(skm.aov)
+  skm.post_hoc = aov(formula = `skm (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #liver normalized
+  organ_weights %>%
+    aggregate(`liver normalized` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+ggplot(aes(x = group, y = `liver normalized`, shape = group, color = group)) +
+    ylab('Liver (g) / Tibia Length (cm)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  liver.aov <- anova_test(
+    data = organ_weights, dv = `liver normalized`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `liver normalized` ~ sex*genotype
+  )
+  get_anova_table(liver.aov)
+  liver.post_hoc = aov(formula = `liver normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #subq normalized
+  organ_weights %>%
+    aggregate(`subq normalized` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+ggplot(aes(x = group, y = `subq normalized`, shape = group, color = group)) +
+    ylab('SubQ Fat (g) / Tibia Length (cm)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  subq.aov <- anova_test(
+    data = organ_weights, dv = `subq normalized`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `subq normalized` ~ sex*genotype
+  )
+  get_anova_table(subq.aov)
+  subq.post_hoc = aov(formula = `subq normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #kidney normalized
+  organ_weights %>%
+    aggregate(`kidney normalized` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+    ggplot(aes(x = group, y = `kidney normalized`, shape = group, color = group)) +
+    ylab('Kidney (g) / Tibia Length (cm)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  kidney.aov <- anova_test(
+    data = organ_weights, dv = `kidney normalized`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `kidney normalized` ~ sex*genotype
+  )
+  get_anova_table(kidney.aov)
+  kidney.post_hoc = aov(formula = `kidney normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #visceral normalized
+  organ_weights %>%
+    aggregate(`visceral normalized` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
+ggplot(aes(x = group, y = `visceral normalized`, shape = genotype, color = sex)) +
+    ylab('Visceral Fat (g) / Tibia Length (cm)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  visceral.aov <- anova_test(
+    data = organ_weights, dv = `visceral normalized`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `visceral normalized` ~ sex*genotype
+  )
+  get_anova_table(visceral.aov)
+  visceral.post_hoc = aov(formula = `visceral normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #heart normalized
+  organ_weights %>%
+    aggregate(`heart normalized` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    ggplot(aes(x = group, y = `heart normalized`, shape = group, color = group)) +
+    ylab('Heart (g) / Tibia Length (cm)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  heart.aov <- anova_test(
+    data = organ_weights, dv = `heart normalized`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `heart normalized` ~ sex*genotype
+  )
+  get_anova_table(heart.aov)
+  heart.post_hoc = aov(formula = `heart normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+  
+  #skm normalized
+  organ_weights %>%
+    aggregate(`skm normalized` ~ mouse_id, mean) %>%
+    merge(.,genotypes) %>%
+    mutate(group = paste(sex, genotype)) %>%
+    ggplot(aes(x = group, y = `skm normalized`, shape = group, color = group)) +
+    ylab('Skeletal Muscle (g) / Tibia Length (cm)') +
+    geom_jitter(position = position_jitter(width = .15)) + 
+    stat_summary(fun = mean, geom = "crossbar") +
+    theme_classic() +
+    scale_color_manual(values = colors_klf14) +
+    scale_shape_manual(values = shapes_klf14) +
+    theme(text = element_text(size = 14))
+  skm.aov <- anova_test(
+    data = organ_weights, dv = `skm normalized`, wid = mouse_id,
+    within = c(sex, genotype),
+    formula = `skm normalized` ~ sex*genotype
+  )
+  get_anova_table(skm.aov)
+  skm.post_hoc = aov(formula = `skm normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
+```
