@@ -47,7 +47,7 @@ klf14_tg_echomri = read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data
 ## Make Legend
 
 ```{r}
-colors_klf14 = c('red','red','blue','blue')
+colors_klf14 = c('magenta','magenta','blue','blue')
 lines_KLF14 = c(1,2,1,2)
 weeks = tidyr::full_seq(c(12, 48), 4)
 time_points = c(0,20,40,60,90,120)
@@ -585,7 +585,7 @@ all_lipid_data %>%
   theme_classic() +
   scale_color_manual(values = colors_klf14) +
   scale_shape_manual(values = shapes_klf14) +
-  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test') +
+  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test', color = "black") +
   theme(text = element_text(size = 14), legend.position="left", axis.title.x =element_blank())
 
 all_lipid_data %>% 
@@ -598,7 +598,7 @@ all_lipid_data %>%
   theme_classic() +
   scale_color_manual(values = colors_klf14) +
   scale_shape_manual(values = shapes_klf14) +
-  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test') +
+  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test', color = "black") +
   theme(text = element_text(size = 14), legend.position="left", axis.title.x =element_blank())
 
 all_lipid_data %>% 
@@ -611,7 +611,7 @@ all_lipid_data %>%
   theme_classic() +
   scale_color_manual(values = colors_klf14) +
   scale_shape_manual(values = shapes_klf14) +
-  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test') +
+  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test', color = "black") +
   theme(text = element_text(size = 14), legend.position="left", axis.title.x =element_blank())
 
 all_lipid_data %>% 
@@ -624,97 +624,75 @@ all_lipid_data %>%
   theme_classic() +
   scale_color_manual(values = colors_klf14) +
   scale_shape_manual(values = shapes_klf14) +
-  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test') +
+  geom_signif(comparisons = list(c("M WT", 'M TG'),c('F WT', 'F TG')),map_signif_level = F, test = 't.test', color = "black") +
   theme(text = element_text(size = 14), legend.position="left", axis.title.x =element_blank())
 ```
 
-## Subcutaneous Adipose Tissue qPCR
+## Subcutaneous Adipose Tissue qPCR Sex-Combined
 
 ```{r}
 
-logfc = read_excel('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/logfc_for_plotting_qpcr.xlsx')
+logfc = read_excel('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/logfc_for_plotting_qpcr_sex_combined.xlsx')
 logfc$label = fct_relevel(logfc$label,"F WT","F TG","M WT", "M TG")
-male_logfc = subset(logfc, label == 'M TG' | label == 'M WT' )
-female_logfc = subset(logfc, label == 'F TG' | label == 'F WT' )
-
 klf14_taqman = read_excel('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/klf14_average_cq.xlsx',sheet = 4)
 
 lipolysis_genes = c('Atgl','Dgat1','Fabp4','Fatp4')
 browning_genes = c('Pgc1a','Prdm16','TFAM','Ucp1')
 
-# female lipolysis
-p.position = max(subset(female_logfc, Target %in% lipolysis_genes)$logfc)
-female_logfc %>%
+# Step 1: Add a sex column
+logfc_sex <- logfc %>%
   filter(Target %in% lipolysis_genes) %>%
+  mutate(sex = ifelse(grepl("^M", label), "M", "F"))
+
+# Step 2: Run t-tests for M WT vs M TG and F WT vs F TG
+p_values <- logfc_sex %>%
+  filter(label %in% c("M WT", "M TG", "F WT", "F TG")) %>%
+  group_by(Target, sex) %>%
+  t_test(logfc ~ label) %>%
+  add_xy_position(x = "Target", dodge = 0.75)
+
+logfc_sex %>%
   ggplot(aes(x = Target, y = logfc, colour = label)) +
   ylab('Relative Expression') +
-  geom_boxplot(aes(colour = label),outlier.shape = NA) +
+  geom_boxplot(aes(colour = label), outlier.shape = NA, position = position_dodge(width = 0.75)) +
+  geom_jitter(aes(shape = label), 
+              position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.75), size = 2) +
+  scale_color_manual(name = 'group', values = colors_klf14) +
+  scale_shape_manual(name = 'group', values = shapes_klf14) +
+  stat_pvalue_manual(p_values, label = "p", tip.length = 0.01) +
   theme_classic() +
-  scale_color_manual(values=c('red','red')) +
-  geom_jitter(aes(shape = label), position = position_jitterdodge(jitter.width = .1), cex = 2) + 
-  scale_shape_manual(values=c(1,16)) +
-  theme_classic() +
-  stat_compare_means(aes(group = label), label = "p.format", label.y = p.position * 1.1, method = 't.test') +
-  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left',plot.title = element_text(hjust = 0.5))
+  theme(text = element_text(size = 14),
+        axis.title.x = element_blank(),
+        legend.position = 'left',
+        plot.title = element_text(hjust = 0.5))
 
-# female browning
-p.position = max(subset(female_logfc, Target %in% browning_genes)$logfc)
-female_logfc %>%
+# Step 1: Add a sex column
+logfc_sex <- logfc %>%
   filter(Target %in% browning_genes) %>%
+  mutate(sex = ifelse(grepl("^M", label), "M", "F"))
+
+# Step 2: Run t-tests for M WT vs M TG and F WT vs F TG
+p_values <- logfc_sex %>%
+  filter(label %in% c("M WT", "M TG", "F WT", "F TG")) %>%
+  group_by(Target, sex) %>%
+  t_test(logfc ~ label) %>%
+  add_xy_position(x = "Target", dodge = 0.75)
+
+logfc_sex %>%
   ggplot(aes(x = Target, y = logfc, colour = label)) +
   ylab('Relative Expression') +
-  geom_boxplot(aes(colour = label),outlier.shape = NA) +
+  geom_boxplot(aes(colour = label), outlier.shape = NA, position = position_dodge(width = 0.75)) +
+  geom_jitter(aes(shape = label), 
+              position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.75), size = 2) +
+  scale_color_manual(name = 'group', values = colors_klf14) +
+  scale_shape_manual(name = 'group', values = shapes_klf14) +
+  stat_pvalue_manual(p_values, label = "p", tip.length = 0.01) +
   theme_classic() +
-  scale_color_manual(values=c('red','red')) +
-  geom_jitter(aes(shape = label), position = position_jitterdodge(jitter.width = .1), cex = 2) + 
-  scale_shape_manual(values=c(1,16)) +
-  theme_classic() +
-  stat_compare_means(aes(group = label), label = "p.format", label.y = p.position * 1.1, method = 't.test') +
-  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left',plot.title = element_text(hjust = 0.5))
+  theme(text = element_text(size = 14),
+        axis.title.x = element_blank(),
+        legend.position = 'left',
+        plot.title = element_text(hjust = 0.5))
 
-# male lipolysis
-p.position = max(subset(male_logfc, Target %in% lipolysis_genes)$logfc)
-male_logfc %>%
-  filter(Target %in% lipolysis_genes) %>%
-  ggplot(aes(x = Target, y = logfc, colour = label)) +
-  ylab('Relative Expression') +
-  geom_boxplot(aes(colour = label),outlier.shape = NA) +
-  theme_classic() +
-  scale_color_manual(values=c('blue','blue')) +
-  geom_jitter(aes(shape = label), position = position_jitterdodge(jitter.width = .1), cex = 2) + 
-  scale_shape_manual(values=c(2,17)) +
-  theme_classic() +
-  stat_compare_means(aes(group = label), label = "p.format", label.y = p.position * 1.1, method = 't.test') +
-  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left',plot.title = element_text(hjust = 0.5))
-
-# male browning
-p.position = max(subset(male_logfc, Target %in% browning_genes)$logfc)
-male_logfc %>%
-  filter(Target %in% browning_genes) %>%
-  ggplot(aes(x = Target, y = logfc, colour = label)) +
-  ylab('Relative Expression') +
-  geom_boxplot(aes(colour = label),outlier.shape = NA) +
-  theme_classic() +
-  scale_color_manual(values=c('blue','blue')) +
-  geom_jitter(aes(shape = label), position = position_jitterdodge(jitter.width = .1), cex = 2) + 
-  scale_shape_manual(values=c(2,17)) +
-  theme_classic() +
-  stat_compare_means(aes(group = label), label = "p.format", label.y = p.position * 1.1, method = 't.test') +
-  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left',plot.title = element_text(hjust = 0.5))
-
-p.position = max(klf14_taqman$Logfc)
-genotype_list = c('WT','TG')
-klf14_taqman %>%
-  mutate(Genotype = factor(Genotype, genotype_list)) %>%
-  ggplot(aes(x = Genotype, y = Logfc)) +
-  ylab('Klf14 Relative Expression') +
-  geom_boxplot(aes(),outlier.shape = NA) +
-  theme_classic() +
-  geom_jitter(aes(shape = Genotype, fill = Genotype),position = position_jitterdodge(jitter.width = .4), cex = 2) + 
-  scale_shape_manual(values=c(1,16)) +
-  theme_classic() +
-  stat_compare_means(aes(group = Genotype), label = "p.format", label.y = p.position * 1.1, label.x.npc = 'middle',method = 't.test') +
-  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left',plot.title = element_text(hjust = 0.5))
 ```
 
 ## Energy Metabolism
@@ -1130,301 +1108,39 @@ klf14_taqman %>%
 ```{r}
 # organ weight analysis ---------------------------------------------------
   organ_weights = read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/cleaned_data/organ_weight_measurements_clean.xlsx')
-  organ_weights = merge(organ_weights, genotypes, all.y = F)
-  organ_weights = melt(organ_weights)
-  organ_weights = organ_weights %>%
-    filter(variable != 'cage') %>%
-    as_tibble() %>%
-    convert_as_factor(sex,genotype,mouse_id)
-  organ_weights$value = as.numeric(organ_weights$value)
-  organ_weights = na.omit(organ_weights)
-  
-  #males
-  organ_weights %>%
-    filter(sex == 'M') %>%
-    ggplot(aes(x = variable, y = value, colour = genotype)) +
-    ylab('Organ Weight Normalized to Tibia Length (g/cm)') +
-    geom_jitter(aes(shape = genotype), position = position_jitterdodge(),cex = 2) + 
-    stat_summary(fun = mean, geom = "crossbar", position = position_dodge2()) +
-    scale_color_manual(values=c('blue','blue')) +
-    scale_shape_manual(values=c(2,17)) +
-    theme_classic() +
-    theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left')
+organ_weights = merge(organ_weights, genotypes, all.y = F)
+organ_weights = melt(organ_weights)
+organ_weights = organ_weights %>%
+  filter(variable != 'cage') %>%
+  as_tibble() %>%
+  convert_as_factor(sex,genotype,mouse_id)
+organ_weights$value = as.numeric(organ_weights$value)
+organ_weights = na.omit(organ_weights)
 
-  #females
-  organ_weights %>%
-    filter(sex == 'F') %>%
-    ggplot(aes(x = variable, y = value, colour = genotype)) +
-    ylab('Organ Weight Normalized to Tibia Length (g/cm)') +
-    geom_jitter(aes(shape = genotype), position = position_jitterdodge(),cex = 2) + 
-    stat_summary(fun = mean, geom = "crossbar", position = position_dodge2())+
-    scale_color_manual(values=c('red','red')) +
-    scale_shape_manual(values=c(16,1)) +
-    theme_classic() +
-    theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left')
+#males
+organ_weights %>%
+  filter(sex == 'M') %>%
+  ggplot(aes(x = variable, y = value, colour = genotype)) +
+  ylab('Organ Weight Normalized to Tibia Length (g/cm)') +
+  geom_jitter(aes(shape = genotype), position = position_jitterdodge(),cex = 2) + 
+  stat_summary(fun = mean, geom = "crossbar", position = position_dodge2()) +
+  scale_color_manual(values=c('blue','blue')) +
+  scale_shape_manual(values=c(2,17)) +
+  theme_classic() +
+  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left')
+ggsave('/Users/ya8eb/Documents/Research/KLF14/Transgenic/organ_harvest/organ_weights/male_organ_weights.jpeg',height = 6, width = 10, units = 'in')
 
-  organ_weights = read_xlsx('/Users/ya8eb/Documents/GitHub/Klf14Tg/raw_data/organ_weight_measurements.xlsx')
- organ_weights = merge(organ_weights, genotypes, all.y = F)
-  organ_weights = organ_weights %>%
-    as_tibble() %>%
-    convert_as_factor(sex,genotype,mouse_id)
+#females
+organ_weights %>%
+  filter(sex == 'F') %>%
+  ggplot(aes(x = variable, y = value, colour = genotype)) +
+  ylab('Organ Weight Normalized to Tibia Length (g/cm)') +
+  geom_jitter(aes(shape = genotype), position = position_jitterdodge(),cex = 2) + 
+  stat_summary(fun = mean, geom = "crossbar", position = position_dodge2())+
+  scale_color_manual(values=c('magenta','magenta')) +
+  scale_shape_manual(values=c(16,1)) +
+  theme_classic() +
+  theme(text = element_text(size = 14), axis.title.x = element_blank(),legend.position = 'left')
+ggsave('/Users/ya8eb/Documents/Research/KLF14/Transgenic/organ_harvest/organ_weights/female_organ_weights.jpeg',height = 6, width = 10, units = 'in')
 
-  #tibia
-  tibia.aov <- anova_test(
-    data = organ_weights, dv = `tibia (cm)`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `tibia (cm)` ~ sex*genotype
-  )
-  get_anova_table(tibia.aov)
-  tibia.post_hoc = aov(formula = `tibia (cm)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  liver.aov <- anova_test(
-    data = organ_weights, dv = `liver (g)`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `liver (g)` ~ sex*genotype
-  )
-  get_anova_table(liver.aov)
-  liver.post_hoc = aov(formula = `liver (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #subq
-  organ_weights %>%
-    aggregate(`subq (g)` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
-    mutate(sex = factor(sex, levels = c("F", "M"))) %>%
-    mutate(genotype = factor(genotype, levels = c("WT", "TG"))) %>%
-    ggplot(aes(x = group, y = `subq (g)`, shape = group, color = group)) +
-    ylab('Subcutaneous Fat (g)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  subq.aov <- anova_test(
-    data = organ_weights, dv = `subq (g)`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `subq (g)` ~ sex*genotype
-  )
-  get_anova_table(subq.aov)
-  subq.post_hoc = aov(formula = `subq (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #kidney
-  organ_weights %>%
-    aggregate(`kidney (g)` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
-    ggplot(aes(x = group, y = `kidney (g)`, shape = group, color = group)) +
-    ylab('Kidney (g)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  kidney.aov <- anova_test(
-    data = organ_weights, dv = `kidney (g)`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `kidney (g)` ~ sex*genotype
-  )
-  get_anova_table(kidney.aov)
-  kidney.post_hoc = aov(formula = `kidney (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #visceral
-  organ_weights %>%
-    aggregate(`visceral (g)` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
-  ggplot(aes(x = group, y = `visceral (g)`, shape = group, color = group)) +
-    ylab('Visceral Fat (g)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  visceral.aov <- anova_test(
-    data = organ_weights, dv = `visceral (g)`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `visceral (g)` ~ sex*genotype
-  )
-  get_anova_table(visceral.aov)
-  visceral.post_hoc = aov(formula = `visceral (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #heart
-  organ_weights %>%
-    aggregate(`heart (g)` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
-    ggplot(aes(x = group, y = `heart (g)`, shape = group, color = group)) +
-    ylab('Heart (g)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  heart.aov <- anova_test(
-    data = organ_weights, dv = `heart (g)`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `heart (g)` ~ sex*genotype
-  )
-  get_anova_table(heart.aov)
-  heart.post_hoc = aov(formula = `heart (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #skm
-  organ_weights %>%
-    aggregate(`skm (g)` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
-ggplot(aes(x = group, y = `skm (g)`, shape = group, color = group)) +
-    ylab('Skeletal Muscle (g)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  skm.aov <- anova_test(
-    data = organ_weights, dv = `skm (g)`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `skm (g)` ~ sex*genotype
-  )
-  get_anova_table(skm.aov)
-  skm.post_hoc = aov(formula = `skm (g)` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #liver normalized
-  organ_weights %>%
-    aggregate(`liver normalized` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
-ggplot(aes(x = group, y = `liver normalized`, shape = group, color = group)) +
-    ylab('Liver (g) / Tibia Length (cm)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  liver.aov <- anova_test(
-    data = organ_weights, dv = `liver normalized`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `liver normalized` ~ sex*genotype
-  )
-  get_anova_table(liver.aov)
-  liver.post_hoc = aov(formula = `liver normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #subq normalized
-  organ_weights %>%
-    aggregate(`subq normalized` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
-ggplot(aes(x = group, y = `subq normalized`, shape = group, color = group)) +
-    ylab('SubQ Fat (g) / Tibia Length (cm)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  subq.aov <- anova_test(
-    data = organ_weights, dv = `subq normalized`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `subq normalized` ~ sex*genotype
-  )
-  get_anova_table(subq.aov)
-  subq.post_hoc = aov(formula = `subq normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #kidney normalized
-  organ_weights %>%
-    aggregate(`kidney normalized` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-    mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
-    ggplot(aes(x = group, y = `kidney normalized`, shape = group, color = group)) +
-    ylab('Kidney (g) / Tibia Length (cm)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  kidney.aov <- anova_test(
-    data = organ_weights, dv = `kidney normalized`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `kidney normalized` ~ sex*genotype
-  )
-  get_anova_table(kidney.aov)
-  kidney.post_hoc = aov(formula = `kidney normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #visceral normalized
-  organ_weights %>%
-    aggregate(`visceral normalized` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-        mutate(group = fct_relevel(factor(group), "F WT", "F TG", "M WT", "M TG")) %>%
-ggplot(aes(x = group, y = `visceral normalized`, shape = genotype, color = sex)) +
-    ylab('Visceral Fat (g) / Tibia Length (cm)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  visceral.aov <- anova_test(
-    data = organ_weights, dv = `visceral normalized`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `visceral normalized` ~ sex*genotype
-  )
-  get_anova_table(visceral.aov)
-  visceral.post_hoc = aov(formula = `visceral normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #heart normalized
-  organ_weights %>%
-    aggregate(`heart normalized` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-    ggplot(aes(x = group, y = `heart normalized`, shape = group, color = group)) +
-    ylab('Heart (g) / Tibia Length (cm)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  heart.aov <- anova_test(
-    data = organ_weights, dv = `heart normalized`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `heart normalized` ~ sex*genotype
-  )
-  get_anova_table(heart.aov)
-  heart.post_hoc = aov(formula = `heart normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
-  
-  #skm normalized
-  organ_weights %>%
-    aggregate(`skm normalized` ~ mouse_id, mean) %>%
-    merge(.,genotypes) %>%
-    mutate(group = paste(sex, genotype)) %>%
-    ggplot(aes(x = group, y = `skm normalized`, shape = group, color = group)) +
-    ylab('Skeletal Muscle (g) / Tibia Length (cm)') +
-    geom_jitter(position = position_jitter(width = .15)) + 
-    stat_summary(fun = mean, geom = "crossbar") +
-    theme_classic() +
-    scale_color_manual(values = colors_klf14) +
-    scale_shape_manual(values = shapes_klf14) +
-    theme(text = element_text(size = 14))
-  skm.aov <- anova_test(
-    data = organ_weights, dv = `skm normalized`, wid = mouse_id,
-    within = c(sex, genotype),
-    formula = `skm normalized` ~ sex*genotype
-  )
-  get_anova_table(skm.aov)
-  skm.post_hoc = aov(formula = `skm normalized` ~ sex*genotype, data = organ_weights) %>% tukey_hsd()
 ```
